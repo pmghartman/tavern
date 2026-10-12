@@ -1,0 +1,33 @@
+{
+  "name": "tavern",
+  "version": "1.0.0",
+  "description": "Tavern: a strict D&D 5e table with an AI dungeon master for the phosphorus mesh",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "update": "bash scripts/update.sh",
+    "rebuild": "bash scripts/rebuild.sh",
+    "app": "bash scripts/app_build.sh",
+    "app:dev": "tauri dev"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "pdfjs-dist": "^6.4.299"
+  },
+  "allowScripts": {
+    "better-sqlite3": true
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1"
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas": "^1.0.10",
+    "tesseract.js": "^7.0.0"
+  }
+}

@@ -1,0 +1,15 @@
+# template for the systemd user unit; scripts/rebuild.sh fills in @DIR@ and
+# @NODE@ and installs it as ~/.config/systemd/user/tavern.service
+[Unit]
+Description=Tavern: strict D&D 5e harness with an AI DM
+After=network-online.target
+
+[Service]
+WorkingDirectory=@DIR@
+EnvironmentFile=-@DIR@/.env
+ExecStart=@NODE@ server/index.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

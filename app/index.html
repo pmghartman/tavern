@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tavern</title>
+<style>
+  :root { --bg: #e6dbbd; --card: #fdf1dc; --ink: #2b1d14; --muted: #6b5a48; --accent: #7a200d; --line: #c9ad6a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1d1712; --card: #2a221b; --ink: #eadfca; --muted: #a8977f; --accent: #d9774f; --line: #5a4a32; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 16px/1.5 Georgia, 'Times New Roman', serif; }
+  form { width: min(440px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 28px; box-shadow: 0 6px 24px rgb(0 0 0 / .15); }
+  h1 { margin: 0 0 4px; font-size: 28px; color: var(--accent); letter-spacing: .04em; }
+  p { margin: 0 0 18px; color: var(--muted); }
+  label { display: block; font-size: 14px; margin-bottom: 6px; }
+  input { width: 100%; padding: 10px 12px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+  button { margin-top: 16px; width: 100%; padding: 10px; font: inherit; font-weight: 600; color: #fdf1dc; background: var(--accent); border: 0; border-radius: 6px; cursor: pointer; }
+  .err { color: var(--accent); min-height: 1.5em; margin: 8px 0 0; font-size: 14px; }
+  .status { color: var(--muted); }
+  button:disabled { opacity: .6; cursor: wait; }
+</style>
+<!-- optional, written by scripts/app_build.sh: window.TAVERN_DEFAULT_SERVER -->
+<script src="config.js"></script>
+</head>
+<body>
+<div class="status" id="status" hidden></div>
+<form id="f" hidden>
+  <h1>Tavern</h1>
+  <p>Which Tavern server should this app open?</p>
+  <label for="url">Server address</label>
+  <input id="url" type="text" autocomplete="url" spellcheck="false" placeholder="tavern.example.com">
+  <div class="err" id="err"></div>
+  <button type="submit">Connect</button>
+</form>
+<script>
+  // the desktop app's launcher: open the saved Tavern server, or ask for one.
+  // The app menu's "Server > Change Server..." comes back here with ?pick
+  const KEY = 'tavern.server';
+  const fallback = window.TAVERN_DEFAULT_SERVER || 'http://localhost:8484/';
+  const read = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+  const write = v => { try { localStorage.setItem(KEY, v); } catch { /* private mode */ } };
+
+  // "tavern.example.com" or "192.168.1.5:8484" -> a full URL ending in a
+  // slash, so the web app's relative api/ paths resolve under it. Without a
+  // scheme: http for this machine, LAN names and IP addresses, https otherwise
+  function normalize(raw) {
+    let s = raw.trim();
+    if (!s) return null;
+    if (!/^https?:\/\//i.test(s)) {
+      const host = s.split(/[/:]/)[0].toLowerCase();
+      const local = s.startsWith('[') || !host.includes('.') || /^[\d.]+$/.test(host) || /\.(local|lan|home|internal)$/.test(host);
+      s = `${local ? 'http' : 'https'}://${s}`;
+    }
+    try {
+      const u = new URL(s);
+      if (!u.pathname.endsWith('/')) u.pathname += '/';
+      return u.href;
+    } catch {
+      return null;
+    }
+  }
+
+  // a navigation to a dead address leaves the window blank, so ask the app
+  // first; outside tauri (a plain browser) there is nothing to ask
+  async function reachable(url) {
+    const invoke = window.__TAURI__?.core?.invoke;
+    if (!invoke) return true;
+    try {
+      return await invoke('reachable', { url });
+    } catch {
+      return true;
+    }
+  }
+
+  const f = document.getElementById('f');
+  const input = document.getElementById('url');
+  const err = document.getElementById('err');
+  const status = document.getElementById('status');
+  const button = f.querySelector('button');
+  const down = url => `Couldn't reach ${url}. Is the Tavern server running?`;
+
+  function pick(message) {
+    status.hidden = true;
+    f.hidden = false;
+    err.textContent = message || '';
+    input.focus();
+    input.select();
+  }
+
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const url = normalize(input.value);
+    if (!url) return pick('That is not a web address.');
+    button.disabled = true;
+    err.textContent = '';
+    const ok = await reachable(url);
+    button.disabled = false;
+    if (!ok) return pick(down(url));
+    write(url);
+    location.replace(url);
+  });
+
+  const saved = read();
+  input.value = saved || fallback;
+  if (saved && !new URLSearchParams(location.search).has('pick')) {
+    status.textContent = `Connecting to ${saved}...`;
+    status.hidden = false;
+    reachable(saved).then(ok => (ok ? location.replace(saved) : pick(down(saved))));
+  } else {
+    pick();
+  }
+</script>
+</body>
+</html>

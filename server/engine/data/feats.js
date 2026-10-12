@@ -1,0 +1,70 @@
+import { dict } from './dict.js';
+
+const ALL = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
+// classes Magic Initiate can draw from, and the ability its spells use
+export const MAGIC_INITIATE_CLASSES = ['bard', 'cleric', 'druid', 'sorcerer', 'warlock', 'wizard'];
+export const MI_ABILITY = dict({ bard: 'cha', cleric: 'wis', druid: 'wis', sorcerer: 'cha', warlock: 'cha', wizard: 'int' });
+
+// ability: fixed +1s; abilityChoice: +1 to one of these; choice: extra picks the feat needs
+export const FEATS = dict({
+  actor: { name: 'Actor', ability: { cha: 1 }, desc: '+1 Charisma. Advantage on Deception and Performance checks to pass yourself off as someone else; mimic speech you have heard.' },
+  alert: { name: 'Alert', desc: '+5 to initiative. You cannot be surprised, and hidden or unseen creatures gain no advantage on attacks against you.' },
+  athlete: { name: 'Athlete', abilityChoice: ['str', 'dex'], desc: '+1 Strength or Dexterity. Standing up from prone costs only 5 feet of movement; climbing costs no extra movement.' },
+  crossbowExpert: { name: 'Crossbow Expert', desc: 'Ignore the loading property of crossbows, and being within 5 feet of a hostile creature does not impose disadvantage on your ranged attacks.' },
+  defensiveDuelist: { name: 'Defensive Duelist', prereq: { ability: { dex: 13 } }, desc: 'When wielding a finesse weapon you are proficient with and a melee attack hits you, use your reaction to add your proficiency bonus to AC against it.' },
+  dualWielder: { name: 'Dual Wielder', desc: '+1 AC while wielding a melee weapon in each hand. Two-weapon fighting works with one-handed weapons that are not light.' },
+  durable: { name: 'Durable', ability: { con: 1 }, desc: '+1 Constitution. When you roll a Hit Die to regain hit points, the minimum is twice your Constitution modifier (at least 2).' },
+  grappler: { name: 'Grappler', prereq: { ability: { str: 13 } }, desc: 'Advantage on attack rolls against a creature you are grappling.' },
+  greatWeaponMaster: { name: 'Great Weapon Master', desc: 'After a critical hit or dropping a creature to 0 hit points with a melee weapon, make a bonus-action melee attack. With a heavy weapon, take -5 to hit for +10 damage.' },
+  healer: { name: 'Healer', desc: "A healer's kit stabilizes a dying creature and restores 1 hit point, or heals 1d6 + 4 + the creature's level once per rest." },
+  heavilyArmored: { name: 'Heavily Armored', prereq: { armor: 'medium' }, ability: { str: 1 }, grantsArmor: ['heavy'], desc: '+1 Strength. Proficiency with heavy armor.' },
+  heavyArmorMaster: { name: 'Heavy Armor Master', prereq: { armor: 'heavy' }, ability: { str: 1 }, desc: '+1 Strength. While wearing heavy armor, nonmagical bludgeoning, piercing and slashing damage you take is reduced by 3.' },
+  keenMind: { name: 'Keen Mind', ability: { int: 1 }, desc: '+1 Intelligence. You always know north, the hours until sunrise or sunset, and recall anything you saw or heard in the past month.' },
+  lightlyArmored: { name: 'Lightly Armored', abilityChoice: ['str', 'dex'], grantsArmor: ['light'], desc: '+1 Strength or Dexterity. Proficiency with light armor.' },
+  lucky: { name: 'Lucky', desc: 'Three luck points per long rest. A failed attack roll, ability check or saving throw is rerolled automatically while points remain.' },
+  magicInitiate: { name: 'Magic Initiate', choice: 'magicInitiate', desc: "Learn two cantrips and one 1st-level spell from a class's list. The 1st-level spell can be cast once per long rest without a slot." },
+  mobile: { name: 'Mobile', desc: '+10 feet of speed. Dashing ignores difficult terrain, and creatures you attack in melee cannot make opportunity attacks against you that turn.' },
+  moderatelyArmored: { name: 'Moderately Armored', prereq: { armor: 'light' }, abilityChoice: ['str', 'dex'], grantsArmor: ['medium', 'shield'], desc: '+1 Strength or Dexterity. Proficiency with medium armor and shields.' },
+  observant: { name: 'Observant', abilityChoice: ['int', 'wis'], desc: '+1 Intelligence or Wisdom. +5 to passive Perception and passive Investigation; read lips.' },
+  polearmMaster: { name: 'Polearm Master', desc: 'After attacking with a glaive, halberd, quarterstaff or spear, make a bonus-action attack with the butt end (1d4 bludgeoning).' },
+  resilient: { name: 'Resilient', abilityChoice: ALL, grantsSave: true, desc: '+1 to one ability score and proficiency in saving throws with that ability.' },
+  savageAttacker: { name: 'Savage Attacker', desc: 'Once per turn, reroll the damage dice of a melee weapon attack and use either total.' },
+  sentinel: { name: 'Sentinel', desc: 'Creatures you hit with opportunity attacks stop moving, and Disengage does not protect them from you.' },
+  sharpshooter: { name: 'Sharpshooter', desc: 'No disadvantage at long range. With a ranged weapon, take -5 to hit for +10 damage.' },
+  skilled: { name: 'Skilled', choice: 'skills', count: 3, desc: 'Proficiency in any three skills.' },
+  tough: { name: 'Tough', desc: 'Your hit point maximum increases by 2 for every level you have.' },
+  warCaster: { name: 'War Caster', prereq: { spellcasting: true }, desc: 'Advantage on Constitution saves to maintain concentration.' },
+  // Xanathar's Guide to Everything: racial feats (descriptions paraphrased)
+  bountifulLuck: { name: 'Bountiful Luck', source: 'XGtE', prereq: { race: ['halfling'] }, desc: 'Reaction: when an ally within 30 feet rolls a 1 on an attack, check or save, it rerolls.' },
+  dragonFear: { name: 'Dragon Fear', source: 'XGtE', prereq: { race: ['dragonborn'] }, abilityChoice: ['str', 'con', 'cha'], desc: '+1 Str, Con or Cha. Instead of your breath weapon, roar: creatures within 30 feet make Wisdom saves or are frightened for a minute.' },
+  dragonHide: { name: 'Dragon Hide', source: 'XGtE', prereq: { race: ['dragonborn'] }, abilityChoice: ['str', 'con', 'cha'], unarmoredAc: 13, desc: '+1 Str, Con or Cha. Without armor your AC is 13 + Dex, and your claws deal 1d4 + Str slashing.' },
+  drowHighMagic: { name: 'Drow High Magic', source: 'XGtE', prereq: { race: ['elf'] }, spellAbility: 'cha', spells: { atWill: ['detectMagic'], fixed: ['levitate', 'dispelMagic'] }, desc: 'Cast Detect Magic at will, and Levitate and Dispel Magic once each per long rest.' },
+  dwarvenFortitude: { name: 'Dwarven Fortitude', source: 'XGtE', prereq: { race: ['dwarf'] }, ability: { con: 1 }, desc: '+1 Constitution. When you Dodge, spend a Hit Die to heal.' },
+  elvenAccuracy: { name: 'Elven Accuracy', source: 'XGtE', prereq: { race: ['elf', 'halfElf'] }, abilityChoice: ['dex', 'int', 'wis', 'cha'], desc: '+1 Dex, Int, Wis or Cha. When you have advantage on an attack using one of those, reroll one of the dice once.' },
+  fadeAway: { name: 'Fade Away', source: 'XGtE', prereq: { race: ['gnome'] }, abilityChoice: ['dex', 'int'], desc: '+1 Dex or Int. Reaction when damaged: turn invisible until the end of your next turn, once per short rest.' },
+  feyTeleportation: { name: 'Fey Teleportation', source: 'XGtE', prereq: { race: ['elf'] }, abilityChoice: ['int', 'cha'], spells: { fixed: ['mistyStep'] }, desc: '+1 Int or Cha. Learn Sylvan, and cast Misty Step without a slot once per short rest.' },
+  flamesOfPhlegethos: { name: 'Flames of Phlegethos', source: 'XGtE', prereq: { race: ['tiefling'] }, abilityChoice: ['int', 'cha'], desc: '+1 Int or Cha. Reroll 1s on fire spell damage, and fire spells wreathe you in flames that burn attackers.' },
+  infernalConstitution: { name: 'Infernal Constitution', source: 'XGtE', prereq: { race: ['tiefling'] }, ability: { con: 1 }, resist: ['cold', 'poison'], desc: '+1 Constitution. Resistance to cold and poison damage, and advantage on saves against poison.' },
+  orcishFury: { name: 'Orcish Fury', source: 'XGtE', prereq: { race: ['halfOrc'] }, abilityChoice: ['str', 'con'], desc: '+1 Str or Con. Once per short rest add an extra weapon die to damage; Relentless Endurance lets you attack as a reaction.' },
+  prodigy: { name: 'Prodigy', source: 'XGtE', prereq: { race: ['halfElf', 'halfOrc', 'human'] }, choice: 'skills', count: 1, expertise: 1, desc: 'One skill, one tool and one language, and expertise in one skill you are proficient in.' },
+  secondChance: { name: 'Second Chance', source: 'XGtE', prereq: { race: ['halfling'] }, abilityChoice: ['dex', 'con', 'cha'], desc: '+1 Dex, Con or Cha. Reaction: force a creature that hit you to reroll, once per short rest.' },
+  squatNimbleness: { name: 'Squat Nimbleness', source: 'XGtE', prereq: { raceOrSmall: ['dwarf'] }, abilityChoice: ['str', 'dex'], desc: '+1 Str or Dex. +5 feet of speed, Acrobatics or Athletics proficiency, and advantage escaping grapples.' },
+  woodElfMagic: { name: 'Wood Elf Magic', source: 'XGtE', prereq: { race: ['elf'] }, spellAbility: 'wis', spells: { cantrips: { list: 'druid', count: 1 }, fixed: ['longstrider', 'passWithoutTrace'] }, desc: 'A druid cantrip, and Longstrider and Pass without Trace once each per long rest.' },
+  // Tasha's Cauldron of Everything
+  artificerInitiate: { name: 'Artificer Initiate', source: 'TCE', spellAbility: 'int', spells: { cantrips: { list: 'artificer', count: 1 }, pick: { list: 'artificer', level: 1 } }, desc: "An artificer cantrip and a 1st-level artificer spell (once per long rest without a slot), cast with Intelligence, and one artisan's tool." },
+  chef: { name: 'Chef', source: 'TCE', abilityChoice: ['con', 'wis'], desc: "+1 Con or Wis. Cook's utensils; your meals heal an extra 1d8 on a short rest, and your treats grant temporary hit points." },
+  crusher: { name: 'Crusher', source: 'TCE', abilityChoice: ['str', 'con'], desc: '+1 Str or Con. Bludgeoning hits can push a foe 5 feet, and your crits with them give allies advantage against it.' },
+  eldritchAdept: { name: 'Eldritch Adept', source: 'TCE', prereq: { spellcasting: true }, choice: 'invocation', desc: 'Learn one Eldritch Invocation that has no prerequisite.' },
+  feyTouched: { name: 'Fey Touched', source: 'TCE', abilityChoice: ['int', 'wis', 'cha'], spells: { fixed: ['mistyStep'], pick: { level: 1, schools: ['divination', 'enchantment'] } }, desc: '+1 Int, Wis or Cha. Learn Misty Step and a 1st-level divination or enchantment spell, each castable once per long rest without a slot.' },
+  fightingInitiate: { name: 'Fighting Initiate', source: 'TCE', prereq: { martial: true }, choice: 'fightingStyle', desc: 'Learn one fighting style.' },
+  gunner: { name: 'Gunner', source: 'TCE', ability: { dex: 1 }, desc: '+1 Dexterity. Proficiency with firearms, ignore their loading, and no disadvantage firing next to a foe.' },
+  metamagicAdept: { name: 'Metamagic Adept', source: 'TCE', prereq: { spellcasting: true }, choice: 'metamagic', count: 2, desc: 'Learn two Metamagic options and gain 2 sorcery points to spend on them.' },
+  piercer: { name: 'Piercer', source: 'TCE', abilityChoice: ['str', 'dex'], desc: '+1 Str or Dex. Reroll one piercing damage die once per turn, and roll an extra die on piercing crits.' },
+  poisoner: { name: 'Poisoner', source: 'TCE', desc: "Ignore poison resistance with your damage, coat weapons as a bonus action (2d8 poison), and brew poisons with the poisoner's kit." },
+  shadowTouched: { name: 'Shadow Touched', source: 'TCE', abilityChoice: ['int', 'wis', 'cha'], spells: { fixed: ['invisibility'], pick: { level: 1, schools: ['illusion', 'necromancy'] } }, desc: '+1 Int, Wis or Cha. Learn Invisibility and a 1st-level illusion or necromancy spell, each castable once per long rest without a slot.' },
+  skillExpert: { name: 'Skill Expert', source: 'TCE', abilityChoice: ['str', 'dex', 'con', 'int', 'wis', 'cha'], choice: 'skills', count: 1, expertise: 1, desc: '+1 to any ability. One skill proficiency, and expertise in one skill you are proficient in.' },
+  slasher: { name: 'Slasher', source: 'TCE', abilityChoice: ['str', 'dex'], desc: '+1 Str or Dex. Slashing hits slow a foe by 10 feet, and slashing crits give it disadvantage on attacks.' },
+  telekinetic: { name: 'Telekinetic', source: 'TCE', abilityChoice: ['int', 'wis', 'cha'], spells: { atWill: ['mageHand'] }, desc: '+1 Int, Wis or Cha. Learn an invisible Mage Hand, and shove a creature 5 feet with your mind as a bonus action.' },
+  telepathic: { name: 'Telepathic', source: 'TCE', abilityChoice: ['int', 'wis', 'cha'], spells: { fixed: ['detectThoughts'] }, desc: '+1 Int, Wis or Cha. Speak telepathically within 60 feet, and cast Detect Thoughts once per long rest without a slot.' },
+});
