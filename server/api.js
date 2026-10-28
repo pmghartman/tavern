@@ -42,7 +42,7 @@ function route(method, pattern) {
   return { method, re, keys };
 }
 
-export function buildApi({ game, store, llm, hub, config, search = null, modules = null }) {
+export function buildApi({ game, store, llm, hub, config, search = null, modules = null, updater = null }) {
   const routes = [];
   const on = (method, pattern, handler, opts = {}) => routes.push({ ...route(method, pattern), handler, ...opts });
   const playerFrom = (req, body, query) => {
@@ -64,14 +64,26 @@ export function buildApi({ game, store, llm, hub, config, search = null, modules
   on('GET', '/models', async ({ query }) => ({ models: await llm.probe(query.get('refresh') === '1') }));
   let rulesPacked = null;
   on('GET', '/rules', ({ res }) => sendPacked(res, (rulesPacked ??= packBody(JSON.stringify(rulesData()), 'application/json; charset=utf-8'))));
-  // the agent selector: opencode's list through phos, tavern asking chimp unless one is picked
+  // this tavern's update from upstream: where the last one stands, and a press to start one
+  on('GET', '/update', () => (updater ? updater.status() : { version: VERSION, canUpdate: false, state: 'idle', log: '', why: 'updates are off' }));
+  on('POST', '/update', ({ req, body, query }) => {
+    playerFrom(req, body, query);
+    if (!updater) throw new HttpError(409, 'Updates are off on this tavern.');
+    try {
+      return updater.start({ force: body?.force === true });
+    } catch (e) {
+      throw new HttpError(409, e.message);
+    }
+  });
+  // the agent selector: phosphorus's mesh models and opencode's free list; tavern
+  // asks phosphorus's pick for its agent unless one is picked here
   on('GET', '/agents', async ({ query }) => {
-    if (!llm.agents) return { phos: null, selected: '', chimp: null, groups: [], error: 'Tavern is set to direct model endpoints (TAVERN_MODELS), not phos.' };
+    if (!llm.agents) return { phos: null, selected: '', auto: null, groups: [], error: 'Tavern is set to direct model endpoints (TAVERN_MODELS), not phosphorus.' };
     return llm.agents({ refresh: query.get('refresh') === '1' });
   });
   on('PUT', '/agents', async ({ req, body, query }) => {
     playerFrom(req, body, query);
-    if (!llm.select) throw new HttpError(409, 'Tavern is set to direct model endpoints (TAVERN_MODELS), not phos.');
+    if (!llm.select) throw new HttpError(409, 'Tavern is set to direct model endpoints (TAVERN_MODELS), not phosphorus.');
     try {
       return await llm.select(body?.model ?? '');
     } catch (e) {

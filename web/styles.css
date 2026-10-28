@@ -159,6 +159,9 @@ label { display: block; font-family: var(--sans); font-size: .82em; font-weight:
 
 /* settings: the DM agent */
 .agent-note { margin-top: .4rem; overflow-wrap: anywhere; }
+.update-row { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.update-row .update-line { flex: 1; min-width: 12rem; margin: 0; }
+.update-log { margin: .5rem 0 0; max-height: 11rem; overflow: auto; padding: .5rem .7rem; font-family: var(--mono, ui-monospace, monospace); font-size: .72rem; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--cream); border: 1px solid var(--line2); border-radius: var(--radius); color: var(--ink); }
 
 /* lobby */
 .lobby { max-width: 1100px; margin: 0 auto; padding: 2rem 1.2rem 4rem; }

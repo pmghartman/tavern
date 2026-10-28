@@ -24,13 +24,19 @@ npm ci --omit=dev
 npm start
 ```
 
-better-sqlite3 is a native module: npm downloads a prebuilt binary or compiles it (needs python3, make, a C++ compiler). `sudo scripts/rebuild.sh` installs and starts it as the systemd user unit `tavern` of the checkout's owner. To serve it through phosphorus, add to `config/services.export`:
+better-sqlite3 is a native module: npm downloads a prebuilt binary or compiles it (needs python3, make, a C++ compiler). `sudo scripts/rebuild.sh` installs and starts it as the systemd user unit `tavern` of the checkout's owner.
+
+## Phosphorus
+
+Tavern is built for a [phosphorus](https://github.com/pmghartman/phosphorus) host. To put it on the mesh desktop, add to phosphorus's `config/services.export`:
 
 ```ini
 [tavern]
 port = 8484
 mode = path
 ```
+
+The page uses relative URLs, so it works under phosphorus's `/tavern/` path as it does at the root. The DM is a phosphorus **agent** called Tavern: phosphorus's Agents page assigns it a mesh model (or leaves it to the automatic pick, the biggest model that is ready), and tavern asks phosphorus's model gateway as `agent-tavern`. Settings in tavern can pin another mesh model or one of OpenCode Zen's free agents instead.
 
 ## Configuration
 
@@ -40,9 +46,10 @@ Optional `.env` in the repo root:
 |---|---|---|
 | `TAVERN_PORT` | `8484` | Port |
 | `TAVERN_HOST` | `0.0.0.0` | Bind address |
-| `TAVERN_PHOS_URL` | `http://127.0.0.1:8090` | phos frontend; the DM is its chimp, other agents are picked in Settings |
-| `TAVERN_SEARXNG_URL` | `PHOS_SEARCH_URL` or `127.0.0.1:8888/search` | Last-resort direct SearXNG for the DM's `web_search` (`off` disables search). The DM first uses phos's `/api/mcp` `web_search`/`fetch_page` (mesh fallback), then phos's `/api/search` |
-| `TAVERN_MODELS` | | `name=url,...` OpenAI-compatible endpoints instead of phos |
+| `TAVERN_PHOS_URL` | `http://127.0.0.1:8090` | phosphorus's frontend; the DM asks the model phosphorus picks for its Tavern agent, other agents are picked in Settings |
+| `TAVERN_SEARXNG_URL` | `PHOS_SEARCH_URL` or `127.0.0.1:8888/search` | A SearXNG for the DM's `web_search` and `fetch_page` (`off` disables search) |
+| `TAVERN_MODELS` | | `name=url,...` OpenAI-compatible endpoints instead of phosphorus |
+| `TAVERN_UPDATES` | | `off` hides the update button in Settings |
 | `TAVERN_CONTEXT_TOKENS` | `12000` | Prompt budget |
 | `TAVERN_DM_MAX_TOKENS` | `700` | Longest DM reply, tool calls included |
 | `TAVERN_REASONING` | `low` | Model thinking effort: `low`, `medium`, `high`, `off`, or `default` to leave it to the model |
@@ -54,12 +61,14 @@ Optional `.env` in the repo root:
 
 ## Updates
 
+Settings has an **Update from source** button: the server runs `scripts/update.sh` beside itself (under systemd, as a transient unit of its own, so the restart at its end doesn't kill it), the page shows the log and reloads once the new version answers. The same from a shell:
+
 ```bash
 npm run update      # pull main from upstream, then rebuild
 npm run rebuild     # npm ci, restart the systemd unit if the version changed
 ```
 
-`--force` restarts regardless and lets `update` discard local changes. `.env` and `data/` survive updates, and the database is backed up on each version change. The version is `VERSION` plus the commit count.
+`--force` restarts regardless and lets `update` discard local changes. `.env` and `data/` survive updates, and the database is backed up on each version change. The version is `VERSION` plus the commit count. `TAVERN_UPDATES=off` hides the button.
 
 ## Desktop app
 
@@ -68,11 +77,12 @@ npm run rebuild     # npm ci, restart the systemd unit if the version changed
 ```bash
 scripts/app_build.sh               # update from upstream (as scripts/update.sh), then build
 scripts/app_build.sh --no-update   # build this checkout as it is
+scripts/app_build.sh --install     # then install the build over /Applications/Tavern.app (macOS)
 TAVERN_APP_URL=http://tavern.lan:8484/ scripts/app_build.sh   # another server to offer on first launch
 npm run app:dev                    # run the app without bundling
 ```
 
-Installers land in `src-tauri/target/release/bundle/`.
+Installers land in `src-tauri/target/release/bundle/`. The app's **Server › Update App from Source...** runs `scripts/app_build.sh --install` in the checkout it was built from (or `TAVERN_SRC`), shows the build log, and relaunches into the new build. The server it is connected to updates itself from the page's Settings, as above.
 
 ## Layout
 
@@ -81,6 +91,7 @@ server/engine/  rules engine and game data (data/spellsMore.js and data/subclass
 server/dm/      model clients, DM tools, prompts, memory
 server/         game loop, REST + SSE API, SQLite store
 web/            single-page app, no build step
+app/            the desktop app's own pages: the launcher and the update page
 scripts/        update.sh, rebuild.sh, app_build.sh
 ```
 

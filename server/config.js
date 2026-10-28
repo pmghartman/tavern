@@ -42,10 +42,13 @@ export function loadConfig() {
     webDir: resolve(ROOT, 'web'),
     basePath: (pick('BASE_PATH') ?? '').replace(/\/+$/, ''),
     models,
-    // phos's frontend on this host; tavern asks its chimp. Unset with TAVERN_MODELS set: direct endpoints
+    // phosphorus's frontend on this host; tavern asks the model phosphorus picks for its tavern agent.
+    // Unset with TAVERN_MODELS set: direct endpoints
     phosUrl: pick('PHOS_URL') ?? (models.length ? null : 'http://127.0.0.1:8090'),
-    // SearXNG in the phos container, for the DM's web_search; unset: probed
+    // a SearXNG for the DM's web_search; unset: the usual local address is tried
     searxngUrl: pick('SEARXNG_URL') ?? env.SEARXNG_URL ?? null,
+    // the update button on the page; 'off' hides it
+    updates: pick('UPDATES') !== 'off',
     // folders of adventure files tavern also reads modules from (':'-separated); 'off' disables
     modulesInbox: (pick('MODULES_DIR') ?? '/repo/files/tavern/modules:/opt/phosphorus/files/tavern/modules') === 'off' ? [] : (pick('MODULES_DIR') ?? '/repo/files/tavern/modules:/opt/phosphorus/files/tavern/modules').split(':').filter(Boolean),
     opencodeBin: pick('OPENCODE_BIN') ?? 'opencode',

@@ -1,6 +1,6 @@
 [package]
 name = "tavern"
-version = "0.5.0"
+version = "0.6.0"
 description = "Tavern desktop app: a window onto a Tavern server"
 edition = "2021"
 

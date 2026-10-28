@@ -10,6 +10,7 @@ import { Game } from './game.js';
 import { Search } from './dm/search.js';
 import { Modules } from './dm/modules.js';
 import { buildApi } from './api.js';
+import { Updater } from './update.js';
 import { splitPath, serveStatic, sendJson } from './http.js';
 import { VERSION } from './version.js';
 
@@ -24,7 +25,8 @@ export async function startServer() {
   const modules = new Modules({ dir: join(config.dataDir, 'modules'), llm, hub, config });
   modules.watchInbox();
   const game = new Game({ store, llm, hub, config, search, modules });
-  const api = buildApi({ game, store, llm, hub, config, search, modules });
+  const updater = config.updates ? new Updater({ root: config.root, dataDir: config.dataDir }) : null;
+  const api = buildApi({ game, store, llm, hub, config, search, modules, updater });
   const server = createServer(async (req, res) => {
     try {
       const parts = splitPath(req.url, config.basePath);
@@ -57,7 +59,7 @@ if (import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const s = await startServer();
   const models = s.llm.describe();
   console.log(`tavern ${VERSION} listening on ${s.config.host}:${s.port}`);
-  if (s.llm instanceof PhosLLM) console.log(`model: phos chimp via ${s.config.phosUrl}`);
+  if (s.llm instanceof PhosLLM) console.log(`model: phosphorus's pick for its tavern agent via ${s.config.phosUrl}`);
   else console.log(models.length ? `models: ${models.map(m => `${m.name}`).join(', ')}` : 'no models configured (set TAVERN_PHOS_URL or TAVERN_MODELS); running in harness-only mode');
   const stop = async () => {
     // a restart never hangs on work that won't stop: what is saved is saved

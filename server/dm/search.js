@@ -1,24 +1,20 @@
-// web lookups through phos, as its own models make them: the frontend's MCP web_search and
-// fetch_page first (mesh fallback), then its /api/search, then the model host's SearXNG
+// web lookups for the DM through a SearXNG: the one TAVERN_SEARXNG_URL names,
+// else PHOS_SEARCH_URL, else the usual local address. Pages are read directly,
+// and only ones a search returned
 
 import { VERSION } from '../version.js';
 
 const TTL_MS = 60 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
 const PAGE_BYTES = 1_500_000;
-const PROTOCOL = '2025-06-18';
 // sites that print the books' content closest to the page
 const PREFERRED = /(?:forgottenrealms\.fandom\.com|dnd5e\.wikidot\.com|dndbeyond\.com|5e\.tools|dnd\.wizards\.com|roll20\.net\/compendium|aidedd\.org|fandom\.com)/i;
 const UA = `tavern-dm/${VERSION}`;
 
-// doors in, most preferred first; TAVERN_SEARXNG_URL pins the direct one
+// doors in, most preferred first: today one SearXNG, named by TAVERN_SEARXNG_URL
 export function searchDoors(config) {
-  const phos = config.phosUrl ? String(config.phosUrl).replace(/\/+$/, '') : null;
   const direct = String(config.searxngUrl ?? process.env.PHOS_SEARCH_URL ?? 'http://127.0.0.1:8888/search').replace(/\/+$/, '').replace(/(?<!\/search)$/, '/search');
-  return [
-    ...(phos ? [{ kind: 'mcp', url: `${phos}/api/mcp` }, { kind: 'rest', url: `${phos}/api/search` }] : []),
-    { kind: 'searxng', url: direct },
-  ];
+  return [{ kind: 'searxng', url: direct }];
 }
 
 class Lru extends Map {
@@ -73,31 +69,6 @@ export function focus(text, query, max) {
   return text.slice(best, best + max);
 }
 
-// a JSON-RPC answer from a plain JSON body or an SSE stream
-function rpcReply(text, type, id) {
-  const msgs = /event-stream/.test(type)
-    ? text.split(/\r?\n/).filter(l => l.startsWith('data:')).map(l => {
-      try {
-        return JSON.parse(l.slice(5));
-      } catch {
-        return null;
-      }
-    })
-    : [JSON.parse(text)].flat();
-  return msgs.find(m => m && m.id === id) ?? null;
-}
-
-// a tool result's payload: structured content, else its text parsed as JSON, else the text
-function toolPayload(result) {
-  if (result?.structuredContent) return result.structuredContent;
-  const text = (result?.content ?? []).filter(c => c.type === 'text').map(c => c.text).join('\n');
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
 export class Search {
   constructor(config = {}, { fetchImpl = globalThis.fetch } = {}) {
     this.doors = searchDoors(config);
@@ -105,60 +76,14 @@ export class Search {
     this.down = new Map();
     this.used = null;
     this.error = null;
-    this.mcp = { sid: null, ready: false, id: 0 };
     this.results = new Lru(300);
     this.pages = new Lru(64);
     // urls a search returned, the only ones the direct fallback reads
     this.allowed = new Set();
   }
 
-  async rpc(url, method, params, { notify = false, timeout = 15000 } = {}) {
-    const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': PROTOCOL, 'user-agent': UA };
-    if (this.mcp.sid) headers['mcp-session-id'] = this.mcp.sid;
-    const id = notify ? undefined : ++this.mcp.id;
-    const res = await this.fetch(url, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', ...(notify ? {} : { id }), method, params }), signal: AbortSignal.timeout(timeout) });
-    const sid = res.headers.get('mcp-session-id');
-    if (sid) this.mcp.sid = sid;
-    const text = await res.text();
-    if (!res.ok) {
-      if (res.status === 404 && this.mcp.sid) this.mcp = { ...this.mcp, sid: null, ready: false };
-      throw new Error(`phos mcp answered ${res.status}`);
-    }
-    if (notify) return null;
-    const msg = rpcReply(text, res.headers.get('content-type') ?? '', id);
-    if (!msg) throw new Error('phos mcp gave no answer');
-    if (msg.error) throw new Error(msg.error.message ?? 'phos mcp error');
-    return msg.result;
-  }
-
-  async tool(url, name, args, timeout) {
-    for (let attempt = 0; ; attempt++) {
-      const fresh = !this.mcp.ready;
-      try {
-        if (fresh) {
-          await this.rpc(url, 'initialize', { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'tavern', version: VERSION } });
-          await this.rpc(url, 'notifications/initialized', {}, { notify: true }).catch(() => {});
-          this.mcp.ready = true;
-        }
-        const r = await this.rpc(url, 'tools/call', { name, arguments: args }, { timeout });
-        const out = toolPayload(r);
-        if (r?.isError) throw Object.assign(new Error(typeof out === 'string' ? out : out?.error ?? `${name} failed`), { tool: true });
-        return out;
-      } catch (e) {
-        // an expired session gets one fresh start
-        if (attempt || fresh || e.tool) throw e;
-        this.mcp.ready = false;
-      }
-    }
-  }
-
   async viaDoor(door, query, page) {
-    if (door.kind === 'mcp') {
-      const r = await this.tool(door.url, 'web_search', { query, page }, 20000);
-      if (!Array.isArray(r?.results)) throw new Error(typeof r === 'string' ? r.slice(0, 200) : 'web_search gave no results list');
-      return { results: r.results.map(x => ({ title: x.title, url: x.url, snippet: x.snippet ?? x.content, date: x.date ?? x.publishedDate })), answers: r.answers ?? [], infobox: r.infobox ?? null };
-    }
-    const params = door.kind === 'rest' ? { q: query, page: String(page) } : { q: query, format: 'json', pageno: String(page) };
+    const params = { q: query, format: 'json', pageno: String(page) };
     const res = await this.fetch(`${door.url}?${new URLSearchParams(params)}`, { headers: { accept: 'application/json', 'user-agent': UA }, signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`answered ${res.status}`);
     const body = await res.json();
@@ -201,25 +126,14 @@ export class Search {
     throw new Error(this.error);
   }
 
-  // phos's fetch_page first (public addresses only); else a direct read of a url a search returned
+  // a direct read of a url a search returned, the part about the question
   async read(url, { query = '', max = 4000 } = {}) {
     const u = String(url ?? '').trim();
     if (!/^https?:\/\//.test(u)) throw new Error('Not a web address.');
     let text = this.pages.hit(u);
     if (text === undefined) {
-      const mcp = this.doors.find(d => d.kind === 'mcp');
-      if (mcp && Date.now() - (this.down.get(mcp.url) ?? 0) >= RETRY_MS) {
-        try {
-          const r = await this.tool(mcp.url, 'fetch_page', { url: u }, 25000);
-          text = typeof r === 'string' ? r : String(r?.text ?? r?.content ?? r?.markdown ?? JSON.stringify(r ?? ''));
-        } catch (e) {
-          if (!this.allowed.has(u)) throw new Error(`fetch_page failed: ${e.message}`);
-        }
-      }
-      if (text === undefined) {
-        if (!this.allowed.has(u)) throw new Error('Only pages returned by web_search can be read.');
-        text = await this.fetchText(u);
-      }
+      if (!this.allowed.has(u)) throw new Error('Only pages returned by web_search can be read.');
+      text = await this.fetchText(u);
       this.pages.put(u, text);
     }
     return focus(text, query, max);

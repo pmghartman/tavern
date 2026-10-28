@@ -1,7 +1,7 @@
 // opencode run headless on loopback for OpenCode Zen's free models, the
-// agents phos lists off its mesh. Its free tier answers only opencode itself,
-// so tavern runs the same binary phos ships (scripts/rebuild.sh copies it out
-// of the phos container), locked down hard:
+// agents tavern lists beside phosphorus's mesh models. Its free tier answers
+// only opencode itself, so tavern runs an opencode of its own (TAVERN_OPENCODE_BIN,
+// else the one findBin turns up), locked down hard:
 //   - no provider but Zen's own, no keys, free models only
 //   - every tool, MCP server, plugin, skill, instruction file and subagent off,
 //     denied by name and by wildcard, one step per answer

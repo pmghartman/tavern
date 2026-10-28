@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tavern · update</title>
+<style>
+  :root { --bg: #e6dbbd; --card: #fdf1dc; --ink: #2b1d14; --muted: #6b5a48; --accent: #7a200d; --line: #c9ad6a; --log: #f6ead2; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1d1712; --card: #2a221b; --ink: #eadfca; --muted: #a8977f; --accent: #d9774f; --line: #5a4a32; --log: #211a14; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 16px/1.5 Georgia, 'Times New Roman', serif; }
+  main { width: min(760px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 24px 28px; box-shadow: 0 6px 24px rgb(0 0 0 / .15); }
+  h1 { margin: 0 0 4px; font-size: 26px; color: var(--accent); letter-spacing: .04em; }
+  p { margin: 0 0 14px; color: var(--muted); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+  .row .grow { flex: 1; min-width: 10rem; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  button { padding: 8px 14px; font: inherit; font-weight: 600; color: #fdf1dc; background: var(--accent); border: 0; border-radius: 6px; cursor: pointer; }
+  button.quiet { color: var(--ink); background: transparent; border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  pre { margin: 10px 0 0; height: 46vh; overflow: auto; padding: 10px 12px; background: var(--log); border: 1px solid var(--line); border-radius: 6px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .err { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Update Tavern</h1>
+  <p>Pulls the latest Tavern from its source repository and rebuilds this app from it. The server it connects to updates itself from its own Settings.</p>
+  <div class="row">
+    <span class="grow" id="info">Looking for the checkout…</span>
+    <button id="back" class="quiet" type="button">Back to the table</button>
+    <button id="start" type="button" disabled>Update from source</button>
+    <button id="relaunch" type="button" hidden>Relaunch</button>
+  </div>
+  <pre id="log" hidden></pre>
+</main>
+<script>
+  // the update page of the desktop app: scripts/app_build.sh --install in the
+  // checkout this app was built from, its output shown as it comes; the
+  // "Server > Update App from Source..." menu brings the window here
+  const invoke = window.__TAURI__?.core?.invoke;
+  const listen = window.__TAURI__?.event?.listen;
+  const $ = id => document.getElementById(id);
+  const info = $('info'), log = $('log'), start = $('start'), back = $('back'), relaunch = $('relaunch');
+  const KEY = 'tavern.server';
+  let running = false;
+
+  back.addEventListener('click', () => {
+    if (running && !confirm('The update is still running; leave this page anyway? It carries on in the background.')) return;
+    let saved = null;
+    try { saved = localStorage.getItem(KEY); } catch {}
+    location.replace(saved || 'index.html?pick');
+  });
+
+  function say(text, err = false) {
+    info.textContent = text;
+    info.className = `grow${err ? ' err' : ''}`;
+  }
+
+  function line(text) {
+    log.hidden = false;
+    log.textContent += `${text}\n`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function setup() {
+    if (!invoke) return say('This page only works inside the Tavern desktop app.', true);
+    try {
+      const [v, dir] = await Promise.all([invoke('version'), invoke('source')]);
+      say(`Tavern app v${v}, built from ${dir}`);
+      start.disabled = false;
+    } catch (e) {
+      say(`Can't update this app: ${e}`, true);
+    }
+  }
+
+  start.addEventListener('click', async () => {
+    start.disabled = true;
+    running = true;
+    log.textContent = '';
+    say('Updating… this builds the app with cargo and may take a few minutes.');
+    const stop = listen ? await listen('update-log', e => line(e.payload)) : () => {};
+    try {
+      const code = await invoke('update_from_source');
+      stop();
+      running = false;
+      if (code === 0) {
+        say('Built and installed. Relaunch to run the new build.');
+        relaunch.hidden = false;
+      } else {
+        say(`The update failed (exit ${code}); the log says why.`, true);
+        start.disabled = false;
+      }
+    } catch (e) {
+      stop();
+      running = false;
+      say(`The update failed: ${e}`, true);
+      start.disabled = false;
+    }
+  });
+
+  relaunch.addEventListener('click', () => invoke('relaunch'));
+  setup();
+</script>
+</body>
+</html>

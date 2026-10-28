@@ -4,9 +4,12 @@
 #                                          dependencies, build the app and its installers
 #   scripts/app_build.sh --no-update       build this checkout as it is
 #   scripts/app_build.sh --force           pass --force to the update (discards local changes)
+#   scripts/app_build.sh --install         afterwards, install the build over the app in
+#                                          /Applications (macOS); elsewhere, name the installer
 #   scripts/app_build.sh -- <args>         extra args for `tauri build`, e.g. -- --bundles dmg
 # TAVERN_APP_URL sets the server the app offers on first launch
-# (default http://localhost:8484/); the app remembers what the user picks
+# (default http://localhost:8484/); the app remembers what the user picks.
+# The app's "Server > Update App from Source..." runs this with --install
 set -uo pipefail
 
 # all inside main(), called on the last line, since the update can rewrite
@@ -18,13 +21,14 @@ main() {
   say() { echo "[app_build] $*"; }
   fail() { echo "[app_build] ERROR: $*" >&2; exit 1; }
 
-  local update=1 upd=() tauri=()
+  local update=1 install=0 upd=() tauri=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --no-update) update=0 ;;
       --force) upd+=(--force) ;;
+      --install) install=1 ;;
       --) shift; tauri=("$@"); break ;;
-      -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
       *) fail "unknown option $1" ;;
     esac
     shift
@@ -37,14 +41,15 @@ main() {
     bash "$dir/scripts/update.sh" ${upd[@]+"${upd[@]}"} || fail "update failed, nothing built"
     # the update may have brought a new copy of this script: build with that
     local again=(--no-update)
+    [ "$install" = 1 ] && again+=(--install)
     [ ${#tauri[@]} -gt 0 ] && again+=(-- "${tauri[@]}")
     exec bash "$dir/scripts/app_build.sh" "${again[@]}"
   fi
 
   # --- step 2: toolchain and dependencies ----------------------------------------
 
-  [ -x "$HOME/.local/node/bin/node" ] && export PATH="$HOME/.local/node/bin:$PATH"
-  [ -d "$HOME/.cargo/bin" ] && export PATH="$HOME/.cargo/bin:$PATH"
+  # the app's own PATH (when it runs this) misses the usual tool dirs
+  export PATH="$HOME/.local/node/bin:$HOME/.cargo/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
   command -v node >/dev/null || fail "node not found; install Node 20+"
   command -v cargo >/dev/null || fail "cargo not found; install Rust from https://rustup.rs"
 
@@ -63,6 +68,19 @@ main() {
 
   say "done; bundles are in src-tauri/target/release/bundle/"
   find src-tauri/target/release/bundle -maxdepth 2 -mindepth 2 \( -name "*.app" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" \) 2>/dev/null | sed 's/^/  /'
+
+  # --- step 4: install -----------------------------------------------------------
+
+  [ "$install" = 1 ] || return 0
+  if [ "$(uname)" = Darwin ]; then
+    local app="src-tauri/target/release/bundle/macos/Tavern.app"
+    [ -d "$app" ] || fail "no app bundle at $app"
+    rm -rf /Applications/Tavern.app || fail "couldn't replace /Applications/Tavern.app"
+    cp -R "$app" /Applications/ || fail "couldn't copy the app into /Applications"
+    say "installed /Applications/Tavern.app $version; relaunch it to run this build"
+  else
+    say "install the new build from the installer above, then start it again"
+  fi
 }
 
 main "$@"

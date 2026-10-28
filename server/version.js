@@ -23,3 +23,7 @@ function readVersion() {
 }
 
 export const VERSION = readVersion();
+
+// the checkout as it stands now, which differs from VERSION after an update
+// that didn't restart tavern
+export const diskVersion = () => readVersion();
